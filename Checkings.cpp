@@ -9,16 +9,24 @@
 // output: none
 //  =====================================
 void Checkings::deposit(double amount, string user) {
-    std::vector<UserData> users = loadUserData();
 
+	// users is a vector of UserData structs returned from loadUserData() in Account class
+    vector<UserData> users = loadUserData();
+
+	// subscript operator to access the vector of UserData structs
     for (int i = 0; i < users.size(); ++i) {
+		// check if the username matches the user passed in
         if (users[i].username == user) {
+			// add the amount to the checkings account
             users[i].checkings += amount;
+			// update the checkings balance
             checkingsBalance = users[i].checkings;
+            
             break;
         }
     }
 
+	// save the updated user data back to the file
     saveUserData(users);
 }
 // end of deposit function
@@ -33,11 +41,17 @@ void Checkings::deposit(double amount, string user) {
 //  =====================================
 
 void Checkings::withdraw(double total, string user) {
-    std::vector<UserData> users = loadUserData();
+	// Load user data from the file and store it in a vector
+    vector<UserData> users = loadUserData();
 
+	// iterate through the vector of users to find the user
     for (int i = 0; i < users.size(); ++i) {
+		//  if the username matches, withdraw the amount from their checkings account
         if (users[i].username == user) {
+
+			// check if the amount to withdraw is greater than the checkings balance
             if (total > users[i].checkings) {
+				// if so, print an error message and return
                 cout << "Cannot withdraw that much. Try again" << endl;
                 return;
             }

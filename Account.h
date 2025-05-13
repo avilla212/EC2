@@ -30,16 +30,12 @@ class Savings;
 
 // struct to hold user data
 struct UserData {
-	string username;
-	double checkings;
-	double savings;
+	string username = " ";
 
-	void printStruct() const {
-		cout << "Username: " << username << endl;
-		cout << "Checkings: " << checkings << endl;
-		cout << "Savings: " << savings << endl;
-	}
+	double checkings = 0.0;
+	double savings   =  0.0;
 
+	unsigned int id = 0;
 };
 
 class Account {
@@ -51,6 +47,7 @@ protected:
 
 	// vector to hold user data
 	vector<UserData> loadUserData();
+	vector<UserData> activeSessions;
 	
 	// saves updated user data to file
 	void saveUserData(const vector<UserData>&);
@@ -65,21 +62,29 @@ public:
 	virtual void display();
 
 	// functions to handle user login and signup
-	bool findUser(string, string);
-	bool userExists(string);
+	bool findAccount(string, string, unsigned int);
+	bool isDuplicateUser(string);
 
 	// functions to handle login and signup
 	bool login(string, string);
 	bool onLogin(string, string);
+	bool isLoggedIn(unsigned int);
 
 	// functions to handle signup
-	bool onSignup(string, string);
+	bool onSignup(string, string, unsigned int);
 	bool signup(string, string);
 
+	unsigned int generateUserId();
+	unsigned int getUserId(const string&);
+		
 	// functions to handle menu display
 	void handleLoggedInMenu(const string&);
 	void showMenu() const;
 	void loginAndSignup() const;
+
+	// testing
+	void printLoggedInUsers(const vector<UserData>&);
+	void printUserData(const vector<UserData>&);
 
 	virtual ~Account() {}
 };

@@ -40,19 +40,23 @@ void Savings::deposit(double amount, string user) {
 //  =====================================
 
 void Savings::withdraw(double amount, string user) {
-    std::vector<UserData> users = loadUserData();
+	// Load user data from the file and store it in a vector
+    vector<UserData> users = loadUserData();
 
+	// iterate through the vector of users to find the user
     for (int i = 0; i < users.size(); ++i) {
-        if (users[i].username == user) {
-            if (amount > users[i].savings) {
+		// if the username matches, withdraw the amount from their savings account
+        if (users[i].username == user) { 
+			if (amount > users[i].savings) { // check if the amount to withdraw is greater than the savings balance
                 cout << "You cannot withdraw that much. Try again." << endl;
                 return;
             }
 
-            if (withdrawLimit > 0) {
-                users[i].savings -= amount;
-				savingsBalance = users[i].savings;
-				withdrawLimit--;
+			if (withdrawLimit > 0) { // allow withdrawal without fee
+				users[i].savings -= amount; // withdraw the amount
+				savingsBalance = users[i].savings; // update the savings balance
+				withdrawLimit--; // decrement the withdraw limit
+
 				break;
 			}
 			else {

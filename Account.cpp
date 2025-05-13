@@ -3,43 +3,36 @@
 #include "Savings.h"
 #include "Checkings.h"
 
-//============ findUser =============
-// Checks if the provided username and password match an entry in Users.txt
+//============ findAccount =============
+// Checks if the provided username, passowrd and ID an entry in Users.txt
 //
 // input: string user, string password
 // output: bool (true if match found, false otherwise)
 // =====================================
-bool Account::findUser(string user, string password) {
+bool Account::findAccount(string user, string password, unsigned int id) {
     try {
 		// Open the file in read mode
-        ifstream file("Users.txt");
+        ifstream inFile("Users.txt");
 
 		// Check if the file opened successfully
-        if (!file.is_open()) {
+        if (!inFile.is_open()) {
             throw runtime_error("Error opening file.");
         }
 
-		// line variable to hold each line read from the file
-        string line;
+        string fileUser;
+        string filePass;
+        unsigned int fileId;
 
-		// Read the file until the end
-        while (!file.eof()) {
-
-			// Read the line into the line variable
-			// delimiter is space
-            getline(file, line, ' ');
-            
-			// Check if the line matches the username
-            if (line == user) {
-				// Read the next line into the line variable
-                getline(file, line);
-				// Check if the line matches the password
-                return (line == password);
-            }
-            else {
-				// If the username does not match, skip to the next line
-                getline(file, line); // skip to next line
-            }
+		// Read the file
+        // skip the whitespace and read one token at a time
+        while (inFile >> fileUser >> filePass >> fileId) {
+            // check if username, password and id match
+			if (fileUser == user && filePass == password && fileId == id) {
+				// If a match is found, print a message and return true
+				cout << "Login successful for user: " << fileUser << endl;
+				inFile.close();
+				return true;
+			}
         }
         return false;
     }
@@ -53,13 +46,13 @@ bool Account::findUser(string user, string password) {
     }
 }
 
-//============ userExists =============
+//============ isDuplicateUser =============
 // Checks if a given username already exists in Users.txt
 //
 // input: string user
 // output: bool (true if user exists, false otherwise)
 // =====================================
-bool Account::userExists(string user) {
+bool Account::isDuplicateUser(string user) {
     try {
 		// Open the file in read mode
         ifstream file("Users.txt");
@@ -114,22 +107,29 @@ bool Account::signup(string user, string password) {
     try {
 
 		// Check if the username already exists
-        if (userExists(user)) {
+        if (isDuplicateUser(user)) {
             cout << "Username already taken." << endl;
             return false;
         }
 		else { // username is available
 
+            // new id 
+			unsigned int newId = generateUserId();
+
 			// Open the file in append mode
-            ofstream outFile("Users.txt");
+            ofstream outFile("Users.txt", ios::app);
             
+			// Check if the file opened successfully
             if (!outFile.is_open()) {
                 throw runtime_error("Error opening Users.txt for writing.");
             }
 
-            outFile << user << " " << password << endl;
+			// write the new user and password to the file
+            outFile << user << " " << password << " " << newId << endl;
             outFile.close();
-            onSignup(user, password);
+
+			// call onSignup to initialize the user's savings and checkings
+            onSignup(user, password, newId);
 
             cout << "Signup successful!" << endl;
             return true;
@@ -142,19 +142,25 @@ bool Account::signup(string user, string password) {
 }
 
 //============ onSignup =============
-// Initializes a new user's savings and checkings in LoggedIn.txt
+// Initializes a new user's savings, checkings and id.
+// Id will be incre
 //
 // input: string user, string password
 // output: bool (true if write successful, false otherwise)
 // =====================================
-bool Account::onSignup(string user, string password) {
+bool Account::onSignup(string user, string password, unsigned int id) {
     try {
+		// Open the file in append mode
         ofstream outFile("LoggedIn.txt", ios::app);
+
+		// Check if the file opened successfully
         if (!outFile.is_open()) {
             throw runtime_error("Error opening LoggedIn.txt for writing.");
         }
 
-        outFile << user << " " << checkingsBalance << " " << savingsBalance << endl;
+		// write the new user and initial balances to the file
+        outFile << user << " " << id << "  " << checkingsBalance << " " << savingsBalance << " " << endl;
+        
         outFile.close();
 
         return true;
@@ -175,14 +181,43 @@ bool Account::onSignup(string user, string password) {
 // input: string user, string password
 // output: bool (true if write successful, false otherwise)
 // =====================================
+
 bool Account::onLogin(string user, string password) {
     try {
+
+		// get the user id
+        unsigned int id = getUserId(user);
+
+		// Open the file in read mode
+        ifstream inFile("LoggedIn.txt");
+        
+		// Check if the file opened successfully
+        if (!inFile.is_open()) {
+            throw runtime_error("Error opening LoggedIn.txt for reading.");
+        }
+
+		// variables to hold the data read from the file
+        string username;
+        unsigned int fileId;
+        double checkings, savings;
+
+        // Check if this ID already exists in the file
+        while (inFile >> username >> fileId >> checkings >> savings) {
+            if (fileId == id) {
+                cout << "User already logged in (file).\n";
+                inFile.close();
+                return true;
+            }
+        }
+        inFile.close();
+
+        // If not found, append the user
         ofstream outFile("LoggedIn.txt", ios::app);
         if (!outFile.is_open()) {
             throw runtime_error("Error opening LoggedIn.txt for writing.");
         }
 
-        outFile << user << " " << checkingsBalance << " " << savingsBalance << endl;
+        outFile << user << " " << id << " " << checkingsBalance << " " << savingsBalance << endl;
         outFile.close();
 
         return true;
@@ -191,11 +226,8 @@ bool Account::onLogin(string user, string password) {
         cout << e.what() << endl;
         return false;
     }
-    catch (...) {
-        cout << "An unknown error occurred." << endl;
-        return false;
-    }
 }
+
 
 //============ login =============
 // Validates user credentials and logs user in if valid
@@ -203,15 +235,105 @@ bool Account::onLogin(string user, string password) {
 // input: string user, string password
 // output: bool (true if login successful, false otherwise)
 // =====================================
+
 bool Account::login(string user, string password) {
-    if (findUser(user, password)) {
+
+	// grab the user id to be passed into findAccount
+    unsigned int id = getUserId(user);
+
+	// check if the user exists in Users.txt
+    if (findAccount(user, password, id)) {
+
+        // Check in-memory active session
+        for (int i = 0; i < activeSessions.size(); ++i) {
+            if (activeSessions[i].id == id) {
+                cout << "User already logged in (in memory).\n";
+                return true;
+            }
+        }
+
+        // If not logged in, log and write to file
         onLogin(user, password);
+
+        // Add UserData to vector
+        UserData session;
+
+        session.username = user;
+        session.id = id;
+        session.checkings = checkingsBalance;
+        session.savings = savingsBalance;
+        activeSessions.push_back(session);
+
         return true;
     }
-    else {
-        cout << "Login failed." << endl;
-        return false;
+
+    cout << "Login failed.\n";
+    return false;
+}
+
+
+//============ loadUserData =============
+// Loads all user data (username, checkings, savings) from LoggedIn.txt
+//
+// input: none
+// output: vector<UserData> containing all users and balances
+// =====================================
+vector<UserData> Account::loadUserData() {
+	// vector to hold user data
+    vector<UserData> users;
+
+	// open the file in read mode
+    ifstream inFile("LoggedIn.txt");
+
+	// Check if the file opened successfully
+    string username;
+    unsigned int id;
+    double checkings, savings;
+
+	// read the file line by line extracting each token
+    while (inFile >> username >> id >> checkings >> savings) {
+		// create struct to be pushed into the vector
+        UserData data;
+
+		// assign the values to the struct
+        data.username = username;
+        data.id = id;
+        data.checkings = checkings;
+        data.savings = savings;
+
+		// push the struct into the vector
+        users.push_back(data);
     }
+
+	// check if the file opened successfully
+    inFile.close();
+
+    return users;
+}
+
+
+
+
+//============ saveUserData =============
+// Writes all user data back to LoggedIn.txt
+//
+// input: vector<UserData> users
+// output: void
+// =====================================
+void Account::saveUserData(const vector<UserData>& users) {
+
+	// open the file in write mode
+    ofstream outFile("LoggedIn.txt");
+
+	// assign user data to the file
+    for (int i = 0; i < users.size(); ++i) {
+        outFile << users[i].username  << " "
+                << users[i].id        << " "
+                << users[i].checkings << " "
+                << users[i].savings   << endl;
+                
+    }
+
 }
 
 //============ withdraw =============
@@ -221,6 +343,7 @@ bool Account::login(string user, string password) {
 // output: void
 // =====================================
 void Account::withdraw(double amount, string) {
+    // Placeholder since i had issues with pure virtual functions and i forgot to fix them ...
     cout << "Pass" << endl;
 }
 
@@ -231,6 +354,7 @@ void Account::withdraw(double amount, string) {
 // output: void
 // =====================================
 void Account::deposit(double amount, string user) {
+    // Placeholder since i had issues with pure virtual functions and i forgot to fix them ...
     cout << "Pass" << endl;
 }
 
@@ -251,44 +375,49 @@ void Account::display() {
 // output: void
 // =====================================
 void Account::handleLoggedInMenu(const string& username) {
+    // create instances of Checkings and Savings
     Checkings* checkings = new Checkings();
     Savings* savings = new Savings();
 
+    // load user data
     int menuChoice;
     double amount;
 
     do {
+        // display the menu
         showMenu();
 
-        cout << "Enter choice";
+        //  prompt user for choice
+        cout << "Enter choice: ";
         cin >> menuChoice;
 
+        // check if the choice is valid
         switch (menuChoice) {
-        case 1:
+        case 1: // Deposit to Savings
             cout << "Enter amount to deposit into savings: ";
             cin >> amount;
             savings->deposit(amount, username);
             break;
-        case 2:
+        case 2: // Deposit to Checkings
             cout << "Enter amount to deposit into checkings: ";
             cin >> amount;
             checkings->deposit(amount, username);
             break;
-        case 3:
+        case 3: // Withdraw from Savings
             cout << "Enter amount to withdraw from savings: ";
             cin >> amount;
             savings->withdraw(amount, username);
             break;
-        case 4:
+        case 4: // Withdraw from Checkings
             cout << "Enter amount to withdraw from checkings: ";
             cin >> amount;
             checkings->withdraw(amount, username);
             break;
-        case 5:
+        case 5: // Display Account Balances
             checkings->display();
             savings->display();
             break;
-        case 6:
+        case 6: // Exit
             cout << "Exiting..." << endl;
             break;
         default:
@@ -298,6 +427,7 @@ void Account::handleLoggedInMenu(const string& username) {
 
     } while (menuChoice != 6);
 
+    // clean up
     delete checkings;
     delete savings;
 }
@@ -331,39 +461,115 @@ void Account::loginAndSignup() const {
     cout << "2. Signup\n";
 }
 
-//============ loadUserData =============
-// Loads all user data (username, checkings, savings) from LoggedIn.txt
+// ============ generateUserId =============
+// Generates a unique user ID by incrementing the last ID in the file
 //
 // input: none
-// output: vector<UserData> containing all users and balances
-// =====================================
-vector<UserData> Account::loadUserData() {
-    vector<UserData> users;
-    ifstream inFile("LoggedIn.txt");
-    string username;
-    double checkings, savings;
-
-    while (inFile >> username >> checkings >> savings) {
-        UserData data;
-        data.username = username;
-        data.checkings = checkings;
-        data.savings = savings;
-        users.push_back(data);
-    }
-    return users;
-}
-
-//============ saveUserData =============
-// Writes all user data back to LoggedIn.txt
 //
-// input: vector<UserData> users
-// output: void
-// =====================================
-void Account::saveUserData(const vector<UserData>& users) {
-    ofstream outFile("LoggedIn.txt");
-    for (int i = 0; i < users.size(); ++i) {
-        outFile << users[i].username << " " << users[i].checkings << " " << users[i].savings << endl;
+// output: unsigned int (new user ID)
+// ====================================
+
+unsigned int Account::generateUserId() {
+    try {
+        // id to be created and returned
+        unsigned int id = 0;
+        
+        // keep track of the id
+        ifstream inFile("id_counter.txt");
+
+		// Check if the file opened successfully
+        if (!inFile.is_open()) {
+			throw runtime_error("Error opening id_counter.txt");
+        }
+        else {
+            inFile >> id;
+            inFile.close();
+        }
+
+        // 
+        ++id;
+
+		// open the file in write mode to write the new id
+		ofstream outFile("id_counter.txt", ios::trunc);
+
+		// Check if the file opened successfully
+        if (!outFile.is_open()) {
+            throw runtime_error("Error opening id_counter.txt");
+        }
+
+		// write the new id to the file
+        outFile << id;
+
+		outFile.close();
+
+        return id;  
+    } catch (exception& e) {
+        cout << e.what() << endl;
+	    return 0;
+    }
+    catch (...) {
+		cout << "Unknown error occurred while generating user ID." << endl;
+		return 0;
     }
 }
 
+// =========== isLoggedIn =============
+// Checks if a user is already logged in by checking LoggedIn.txt
+//
+// input: unsigned int idToCheck
+//
+// output: bool (true if logged in, false otherwise)
+// ====================================
+bool Account::isLoggedIn(unsigned int idToCheck) {
+    try {
+		
+		return false;
+    }
+    catch (exception& e) {
+        cout << e.what() << endl;
+        return false;
+    }
+    catch (...) {
+		cout << "Unkwown error occurred." << endl;
+        return false;
+    }
+}
+
+// ============ getUserId =============
+// Retrieves the user ID for a given username from Users.txt
+//
+// input: const string& user
+//
+//  output: unsigned int (user ID)
+// ====================================
+unsigned int Account::getUserId(const string& user) {
+    ifstream inFile("Users.txt");
+    string username;
+	string password;
+    unsigned int id;
+
+    while (inFile >> username >> password >> id) {
+        if (username == user) {
+            return id;
+        }
+    }
+
+    return 0; // return 0 for not found or invalid ID
+}
+
+// ============ printLoggedInUsers =============
+// Displays all logged in users from LoggedIn.txt by passing in our active sessions vector
+//
+// input: vector<UserData>& vec
+//
+// output: void
+// ====================================
+void Account::printLoggedInUsers(const vector<UserData>& vec){
+    cout << "Logged in Users " << endl;
+   
+    vector<UserData>::iterator it;
+    for (it = activeSessions.begin(); it != activeSessions.end(); ++it) {
+        cout << "Username: " << it->username << ", ID: " << it->id << endl;
+    }
+}
 

@@ -40,7 +40,6 @@ int main() {
 
 				// bool returning function checks if user exists
 				if (account->login(username, password)) {
-					cout << "Login successful!" << endl;
 					// call the handleLoggedInMenu function
 					account->handleLoggedInMenu(username);
 				}
@@ -61,7 +60,6 @@ int main() {
 
 				// bool returning function checks if user exists
 				if (account->signup(username, password)) {
-					cout << "Signup successful!" << endl;
 					// call the handleLoggedInMenu function
 					account->handleLoggedInMenu(username);
 				}
