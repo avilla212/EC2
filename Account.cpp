@@ -47,7 +47,7 @@ bool Account::findAccount(string user, string password, unsigned int id) {
 }
 
 //============ isDuplicateUser =============
-// Checks if a given username already exists in Users.txt
+// Checks if a given username already exists in Users.txt so we dont create duplicate accounts
 //
 // input: string user
 // output: bool (true if user exists, false otherwise)
@@ -55,36 +55,28 @@ bool Account::findAccount(string user, string password, unsigned int id) {
 bool Account::isDuplicateUser(string user) {
     try {
 		// Open the file in read mode
-        ifstream file("Users.txt");
+        ifstream inFile("Users.txt");
 
 		// Check if the file opened successfully
-        if (!file.is_open()) {
+        if (!inFile.is_open()) {
             throw runtime_error("Error opening file.");
         }
 
-		// line variable to hold each line read from the file
-        string line;
+        string fileUser;
+		string filePass;
+		unsigned int fileId;
 
 		// read the file line by line
-        while (getline(file, line)) {
-			// iss istringstream to parse the line
-			// e.g "username password" = "username" "password"
-            istringstream iss(line);
+		while (inFile >> fileUser >> filePass >> fileId) {
+			// check if the username already exists
+			if (fileUser == user) {
+				// If a match is found, print a message and return true
+				cout << "Username already exists: " << fileUser << endl;
+				inFile.close();
+				return true;
+			}
+		}
 
-			// Read the username and password from the line
-            string fileUser, filePass;
-
-			// extract the username and password from the line
-            iss >> fileUser >> filePass;
-            
-			// check if the username matches the file username
-            if (fileUser == user) {
-				// If the username matches, print a message and return true
-                cout << "Duplicate username found: " << fileUser << endl;
-
-                return true;
-            }
-        }
         return false;
     }
     catch (exception& e) {
@@ -125,8 +117,19 @@ bool Account::signup(string user, string password) {
             }
 
 			// write the new user and password to the file
-            outFile << user << " " << password << " " << newId << endl;
-            outFile.close();
+			cout << "Username: " << user << ", Password: " << password << ", ID: " << newId << endl;
+
+            // add user to active sessions vector
+			UserData session;
+			session.username = user;
+			session.id = newId;
+			session.checkings = checkingsBalance;
+			session.savings = savingsBalance;
+			activeSessions.push_back(session);
+
+			// write the new user to the file
+			outFile << user << " " << password << " " << newId << endl;
+			outFile.close();
 
 			// call onSignup to initialize the user's savings and checkings
             onSignup(user, password, newId);
@@ -175,60 +178,6 @@ bool Account::onSignup(string user, string password, unsigned int id) {
     }
 }
 
-//============ onLogin =============
-// Appends user balances to LoggedIn.txt on successful login
-//
-// input: string user, string password
-// output: bool (true if write successful, false otherwise)
-// =====================================
-
-bool Account::onLogin(string user, string password) {
-    try {
-
-		// get the user id
-        unsigned int id = getUserId(user);
-
-		// Open the file in read mode
-        ifstream inFile("LoggedIn.txt");
-        
-		// Check if the file opened successfully
-        if (!inFile.is_open()) {
-            throw runtime_error("Error opening LoggedIn.txt for reading.");
-        }
-
-		// variables to hold the data read from the file
-        string username;
-        unsigned int fileId;
-        double checkings, savings;
-
-        // Check if this ID already exists in the file
-        while (inFile >> username >> fileId >> checkings >> savings) {
-            if (fileId == id) {
-                cout << "User already logged in (file).\n";
-                inFile.close();
-                return true;
-            }
-        }
-        inFile.close();
-
-        // If not found, append the user
-        ofstream outFile("LoggedIn.txt", ios::app);
-        if (!outFile.is_open()) {
-            throw runtime_error("Error opening LoggedIn.txt for writing.");
-        }
-
-        outFile << user << " " << id << " " << checkingsBalance << " " << savingsBalance << endl;
-        outFile.close();
-
-        return true;
-    }
-    catch (exception& e) {
-        cout << e.what() << endl;
-        return false;
-    }
-}
-
-
 //============ login =============
 // Validates user credentials and logs user in if valid
 //
@@ -238,16 +187,16 @@ bool Account::onLogin(string user, string password) {
 
 bool Account::login(string user, string password) {
 
-	// grab the user id to be passed into findAccount
+    // grab the user id to be passed into findAccount
     unsigned int id = getUserId(user);
 
-	// check if the user exists in Users.txt
+    // check if the user exists in Users.txt
     if (findAccount(user, password, id)) {
 
         // Check in-memory active session
         for (int i = 0; i < activeSessions.size(); ++i) {
             if (activeSessions[i].id == id) {
-                cout << "User already logged in (in memory).\n";
+				cout << "User already logged in.." << endl;
                 return true;
             }
         }
@@ -270,6 +219,57 @@ bool Account::login(string user, string password) {
     cout << "Login failed.\n";
     return false;
 }
+
+//============ onLogin =============
+// Appends user balances to LoggedIn.txt on successful login
+//
+// input: string user, string password
+// output: bool (true if write successful, false otherwise)
+// =====================================
+
+bool Account::onLogin(string user, string password) {
+    try {
+
+		// check if username is already in active sessions
+        // if so, we still grant them access
+		for (int i = 0; i < activeSessions.size(); ++i) {
+			if (activeSessions[i].username == user) {
+				cout << "User already logged in." << endl;
+                return true;
+			}
+		}
+
+		// if they are not in active sessions, we add them to the loggedin.txt file
+		ofstream outFile("LoggedIn.txt", ios::app);
+		
+        // Check if the file opened successfully
+		if (!outFile.is_open()) {
+			throw runtime_error("Error opening LoggedIn.txt for writing.");
+		}
+
+		// write the new user and initial balances to the file
+		cout << "Username: " << user << ", Password: " << password << ", ID: " << id << endl;
+		
+        // add user to active sessions vector
+		UserData session;
+		session.username = user;
+		session.id = id;
+		session.checkings = checkingsBalance;
+		session.savings = savingsBalance;
+		activeSessions.push_back(session);
+
+		// write the new user to the file
+        outFile << user << " " << id << " " << checkingsBalance << " " << savingsBalance << endl;
+        outFile.close();
+
+        return true;
+    }
+    catch (exception& e) {
+        cout << e.what() << endl;
+        return false;
+    }
+}
+
 
 
 //============ loadUserData =============
@@ -310,8 +310,6 @@ vector<UserData> Account::loadUserData() {
 
     return users;
 }
-
-
 
 
 //============ saveUserData =============
