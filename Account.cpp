@@ -190,16 +190,14 @@ bool Account::login(string user, string password) {
     // grab the user id to be passed into findAccount
     unsigned int id = getUserId(user);
 
+    // check if user is already logged in
+	if (isLoggedIn(id)) {
+		cout << "User already logged in." << endl;
+        return true;
+	}
+
     // check if the user exists in Users.txt
     if (findAccount(user, password, id)) {
-
-        // Check in-memory active session
-        for (int i = 0; i < activeSessions.size(); ++i) {
-            if (activeSessions[i].id == id) {
-				cout << "User already logged in.." << endl;
-                return true;
-            }
-        }
 
         // If not logged in, log and write to file
         onLogin(user, password);
@@ -230,17 +228,10 @@ bool Account::login(string user, string password) {
 bool Account::onLogin(string user, string password) {
     try {
 
-		// check if username is already in active sessions
-        // if so, we still grant them access
-		for (int i = 0; i < activeSessions.size(); ++i) {
-			if (activeSessions[i].username == user) {
-				cout << "User already logged in." << endl;
-                return true;
-			}
-		}
-
 		// if they are not in active sessions, we add them to the loggedin.txt file
 		ofstream outFile("LoggedIn.txt", ios::app);
+
+		unsigned int id = getUserId(user);
 		
         // Check if the file opened successfully
 		if (!outFile.is_open()) {
@@ -512,7 +503,7 @@ unsigned int Account::generateUserId() {
 }
 
 // =========== isLoggedIn =============
-// Checks if a user is already logged in by checking LoggedIn.txt
+// Checks if a user is already logged in by checking active sessions vector
 //
 // input: unsigned int idToCheck
 //
@@ -520,7 +511,17 @@ unsigned int Account::generateUserId() {
 // ====================================
 bool Account::isLoggedIn(unsigned int idToCheck) {
     try {
-		
+
+		// check if the user is already logged in via id
+		// if so, grant them access
+		for (int i = 0; i < activeSessions.size(); ++i) {
+			if (activeSessions[i].id == idToCheck) {
+				cout << "User already logged in." << endl;
+				return true;
+			}
+		}
+
+		// if not, check if the user is in the file		
 		return false;
     }
     catch (exception& e) {
