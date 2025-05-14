@@ -5,8 +5,6 @@
 #include "Savings.h"
 #include "Checkings.h"
 
-using namespace std;
-
 int main() {
 	try {
 		// variables to hold user input and account details
